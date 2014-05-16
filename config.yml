@@ -1,0 +1,129 @@
+templates:
+  global:
+    regexp:
+      reject:
+        - francais
+        - french
+        - german
+        - dutch
+        - hebsub
+        - ipod
+        - 'Türkçe'
+        - rmvb
+        - italian
+        - french
+        - DTS
+        - KORSUB
+        - DVDScr
+        - WEBRip
+        - Dubbing
+        - Seizoen
+        - SweSub
+    content_filter:
+      require: [ '*.avi', '*.mkv', '*.mpg', '*.mp4', '*.m4v']
+      reject: [ 'password.txt', '*.wmv']
+    magnets: no
+
+  tv:
+    configure_series:
+      from:
+        listdir:
+          - /DataVolume/shares/Media/Series/
+      settings:
+        timeframe: 6 hours
+        target: 720p+
+    exists_series: /DataVolume/shares/Media/Series/{{series_name}}
+    include: includes/transmission_series.yml
+    
+  movies:
+    exists_movie: /DataVolume/shares/Media/Filmes/
+    include: includes/transmission_movies.yml
+
+  notify-series:
+    include: includes/pushbullet_series.yml
+    verify_ssl_certificates: no
+
+  notify-movies:
+    include: includes/pushbullet_movies.yml
+    verify_ssl_certificates: no
+
+tasks:
+  download-tv-kamorra:
+    priority: 1
+    template: [tv, notify-series]
+    rss: http://showrss.info/rss.php?user_id=62115&hd=null&proper=null
+
+  download-tv-kickass:
+    priority: 2
+    template: [tv, notify-series]
+    rss: http://kickass.to/tv/?rss=1
+
+  search-movies:
+    priority: 3
+    template: [movies, notify-movies]
+    movie_queue: yes
+    discover:
+      what:
+        - emit_movie_queue: yes
+      from:
+        - kat:
+            category: movies
+            verified: yes
+      interval: 1 hour
+    torrent_alive: 10
+    quality: 720p+ dvdrip+
+
+
+  learn-series:
+    manual: yes
+    find:
+      regexp: .*(avi|mkv|mp4|m4v)$
+      path: /DataVolume/shares/Media/Series/
+      recursive: yes
+    configure_series:
+      from:
+        listdir:
+          - /DataVolume/shares/Media/Series/
+
+  learn-movies:
+    manual: yes
+    find:
+      regexp: .*(avi|mkv|mp4|m4v)$
+      path: /DataVolume/shares/Media/Filmes/
+      recursive: yes
+    accept_all: yes
+    queue_movies: yes
+  
+  imdb-watchlist:
+    priority: 100
+    include: includes/imdb.yml
+    accept_all: yes
+    seen: local
+    queue_movies: yes
+
+  download-cleanup:
+    include: includes/transmission_config.yml
+    no_entries_ok: yes
+
+  subtitles:
+    find:
+      path: 
+        - /DataVolume/shares/Media/Series/
+        - /DataVolume/shares/Media/Filmes/
+      regexp: '.*\.(avi|mkv|mp4)$'
+      recursive: yes
+    accept_all: yes
+    periscope:
+      languages:
+        - pt
+      alternatives:
+        - en
+      overwrite: yes
+
+schedules:
+  - tasks: [download-tv-*, search-movies, subtitles]
+    interval:
+      hours: 12
+  - tasks: [imdb-watchlist, download-cleanup]
+    interval:
+      days: 1
